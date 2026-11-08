@@ -87,7 +87,9 @@ const GUIA=[
  {id:"icms",t:"Consultas de ICMS",r:"Para todos",h:`
   <ul class="lista">
    <li><b>ICMS por UF</b>: alíquota geral, FCP e alíquota efetiva na importação dos 27 estados. A tabela é conferida na FazComex todo dia 1º, e a data da última conferência aparece no topo.</li>
-   <li><b>ICMS/SP por NCM</b>: digite a NCM (4 a 8 dígitos) para ver se ela consta na Resolução SF 4/1998, na Resolução SF 31/2008 ou no Convênio ICMS 52/91 (Anexos I e II). Vale só para importadores de SP.</li>
+   <li><b>ICMS/SP por NCM</b>: digite a NCM (4 a 8 dígitos) para ver se ela consta na Resolução SF 4/1998 ou na SF 31/2008 (alíquota de 12%) ou no Convênio ICMS 52/91 (carga de 8,80% para máquinas industriais e 5,60% para agrícolas). Cada resultado mostra o item, a descrição, o código da norma e o link oficial, e o botão <b>Copiar resultado</b> leva tudo em texto. Códigos genéricos da norma (ex.: 8427) também valem. Vale só para importadores de SP.</li>
+   <li>A faixa no topo conta os dias até o fim da <b>redução do Convênio 52/91</b> (hoje, 31/12/2026) e fica amarela quando faltam 60 dias ou menos.</li>
+   <li>Na conferência, o Crivo aceita 12%, 8,80% ou 5,60% de ICMS quando a NCM consta na norma correspondente, e aponta quando a alíquota do processo não tem justificativa.</li>
    <li>Dentro de cada processo, a aba <b>ICMS</b> já mostra a alíquota do estado do importador e as NCMs do processo nas normas de SP.</li>
   </ul>
   <div class="dica warn">A FazComex é uma fonte secundária. Em caso de dúvida, confirme na legislação da SEFAZ do estado. Alagoas e Sergipe estão marcados para conferência.</div>`},

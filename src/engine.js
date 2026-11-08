@@ -251,14 +251,17 @@ function conferir(proc,cfg){
     const row=cfg.icmsUF.find(r=>r.uf===uf);
     const al=[...new Set(G.itens.map(i=>i.icms).filter(v=>v!=null))];
     if(row&&al.length){
-      const okA=al.every(a=>eq(a,row.aliq,0.001)||eq(a,row.efetiva,0.001));
-      if(!okA) add("icms_aliquota",{descricao:`O importador é de ${uf}, onde a alíquota geral é ${fmt(row.aliq)}%${row.fcp?` + FCP ${fmt(row.fcp)}%`:""}. O processo usa ${al.map(a=>fmt(a)+"%").join(", ")}. Se houver benefício (redução de base, diferimento), confirme o enquadramento.`,valores:[V("Tabela "+uf,fmt(row.efetiva)+"%"),V("Sigraweb",al.map(a=>fmt(a)+"%").join(", "),true)],locs:G.itens.slice(0,1).map(i=>i.loc?.icms)});
-      else pass(`ICMS ${uf} ${fmt(al[0])}%`);
+      const aceitas=it=>[row.aliq,row.efetiva,...(uf==="SP"&&cfg.ncmSPAliq&&it.ncm?cfg.ncmSPAliq(it.ncm):[])];
+      const fora=G.itens.filter(it=>it.icms!=null&&!aceitas(it).some(x=>eq(it.icms,x,0.001)));
+      if(fora.length){const al2=[...new Set(fora.map(i=>i.icms))];
+        add("icms_aliquota",{descricao:`O importador é de ${uf}, onde a alíquota geral é ${fmt(row.aliq)}%${row.fcp?` + FCP ${fmt(row.fcp)}%`:""}. ${fora.length===G.itens.length?"O processo usa":`${fora.length} item(ns) usam`} ${al2.map(a=>fmt(a)+"%").join(", ")}${uf==="SP"?", e as NCMs não constam nas normas de ICMS/SP que justificariam essa alíquota (SF 4/1998, SF 31/2008, Conv. 52/91)":""}. Se houver outro benefício, confirme o enquadramento.`,valores:[V("Tabela "+uf,fmt(row.efetiva)+"%"),V("Sigraweb",al2.map(a=>fmt(a)+"%").join(", "),true)],itens:fora.map(i=>i.seq),locs:fora.slice(0,5).map(i=>i.loc?.icms)});}
+      else pass(`ICMS ${uf} ${al.map(a=>fmt(a)+"%").join(" / ")}`);
     }
   }
   if(uf==="SP"&&cfg.ncmSP){
     const hits=[];for(const n of [...new Set(G.itens.map(i=>i.ncm).filter(Boolean))]){const h=cfg.ncmSP(n);if(h.length)hits.push(n+" → "+h.join("; "));}
-    if(hits.length) add("icms_sp_ncm",{descricao:"Uma ou mais NCMs constam em normas de ICMS/SP (redução de base de cálculo). Verifique se o benefício se aplica.",linhas:hits});
+    if(hits.length){const v=cfg.vig52;const venc=v&&v.dias<0;
+      add("icms_sp_ncm",{nivel:venc&&hits.some(h=>/52\/91/.test(h))?"warn":undefined,descricao:`Uma ou mais NCMs constam em normas de ICMS/SP: SF 4/1998 e SF 31/2008 (alíquota de 12%) ou Convênio 52/91 (carga de 8,80% / 5,60%). Verifique se o benefício se aplica e se a alíquota do processo está de acordo.${v?(venc?` Atenção: a redução de base do Conv. 52/91 venceu em ${v.ate}; confira a prorrogação.`:` A redução do Conv. 52/91 vale até ${v.ate}.`):""}`,linhas:hits});}
   }
 
   // --- Itens

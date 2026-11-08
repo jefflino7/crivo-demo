@@ -7,7 +7,16 @@ const ICMS_UF_PADRAO={atualizadoEm:"2026-11-08",fonte:"https://www.fazcomex.com.
  ["RJ","Rio de Janeiro",20,2,22,"FCP 2% · vigência 20/03/2024"],["RN","Rio Grande do Norte",18,0,18,"Vigência 01/01/2024"],["RO","Rondônia",19.5,0,19.5,"Vigência 12/01/2024"],["RR","Roraima",20,0,20,""],
  ["RS","Rio Grande do Sul",17,0,17,""],["SC","Santa Catarina",17,0,17,""],["SE","Sergipe",19,1,20,"FCP 1%. Confirmar na SEFAZ-SE."],["SP","São Paulo",18,0,18,""],["TO","Tocantins",20,0,20,"Vigência 01/01/2024"]
 ].map(([uf,nome,aliq,fcp,efetiva,obs])=>({uf,nome,aliq,fcp,efetiva,obs}))};
-const SECS_SP=[{t:"Resolução SF 4/1998",f:"Resolução SF 4/1998",a:""},{t:"Resolução SF 31/2008",f:"Resolução SF 31/2008",a:""},{t:"Convênio ICMS 52/91 · Anexo I",f:"Convênio ICMS 52/91",a:"Anexo I -"},{t:"Convênio ICMS 52/91 · Anexo II",f:"Convênio ICMS 52/91",a:"Anexo II -"}];
+const LINKS_SP={sf4:"https://legislacao.fazenda.sp.gov.br/Paginas/resf041998.aspx",sf31:"https://legislacao.fazenda.sp.gov.br/Paginas/resf312008.aspx",cv:"https://www.confaz.fazenda.gov.br/legislacao/convenios/1991/CV052_91",art12:"https://legislacao.fazenda.sp.gov.br/Paginas/an2art012.aspx"};
+const NCMSP_INFO={dadosEm:"24/09/2026",vig52:"2026-12-31",prorrog:"Conv. ICMS 10/2026 · Dec. 70.589/2026"};
+const SECS_SP=[
+ {tag:"SF 4/1998",t:"Resolução SF 4/1998",s:"Máquinas, aparelhos e equipamentos industriais e máquinas e implementos agrícolas",f:"Resolução SF 4/1998",a:"",ef:"Alíquota 12%",aliq:[12],link:LINKS_SP.sf4,lt:"Norma na Sefaz-SP",cor:"#0E8A7E"},
+ {tag:"SF 31/2008",t:"Resolução SF 31/2008",s:"Produtos da indústria de processamento eletrônico de dados",f:"Resolução SF 31/2008",a:"",ef:"Alíquota 12%",aliq:[12],link:LINKS_SP.sf31,lt:"Norma na Sefaz-SP",cor:"#6151D6"},
+ {tag:"Conv. 52/91 · Anexo I",t:"Convênio ICMS 52/91 · Anexo I",s:"Máquinas, aparelhos e equipamentos industriais",f:"Convênio ICMS 52/91",a:"Anexo I -",ef:"Carga 8,80% (interna)",aliq:[8.8],link:LINKS_SP.cv,lt:"Convênio no Confaz",cor:"#1D5BB8",conv:true},
+ {tag:"Conv. 52/91 · Anexo II",t:"Convênio ICMS 52/91 · Anexo II",s:"Máquinas e implementos agrícolas",f:"Convênio ICMS 52/91",a:"Anexo II -",ef:"Carga 5,60% (interna)",aliq:[5.6],link:LINKS_SP.cv,lt:"Convênio no Confaz",cor:"#3F8F2F",conv:true}];
+const fmtNcm=d=>d.length<=4?d:d.slice(0,4)+"."+d.slice(4).match(/.{1,2}/g).join(".");
+const brDate=iso=>{const [y,m,d]=iso.slice(0,10).split("-");return `${d}/${m}/${y}`;};
+const diasVig52=()=>Math.ceil((new Date(NCMSP_INFO.vig52+"T23:59:59-03:00")-new Date())/864e5);
 const TIPOS={BL:"Conhecimento de embarque",INV:"Invoice",PL:"Packing list",CO:"Certificado de origem",SIGRA_DUIMP:"Sigraweb · Conferência DUIMP",SIGRA_DET:"Sigraweb · Conferência Detalhada",SIGRA_SIMP:"Sigraweb · Conferência Simplificada"};
 const CURTO={BL:"BL",INV:"Invoice",PL:"Packing",CO:"C. origem"};
 
@@ -39,9 +48,14 @@ const ST={fItem:null,fNivel:"todos",fGrupo:"todos",abertos:{},soDiv:false,itQ:""
   local:false,files:{},extr:{},draft:null,tab:"apontamentos",filtro:{q:"",status:"todos",regra:null},ncmQ:"",ufQ:""};
 const NCMDATA=__NCMDATA__;
 function ncmSP(q){q=String(q).replace(/\D/g,"");const out=[];
-  for(const r of NCMDATA){for(const n of r.n){const d=n.replace(/\D/g,"");if(q.startsWith(d)||d.startsWith(q)){const s=SECS_SP.find(s=>r.f===s.f&&r.a.startsWith(s.a));out.push({sec:s?s.t:r.f,item:r.i,d:r.d,n:r.n,cod:n});break;}}}
+  for(const r of NCMDATA){const m=new Set(),amplo=[];
+    for(const n of r.n){const d=n.replace(/\D/g,"");if(q.startsWith(d)||d.startsWith(q)){m.add(n);if(d.length<q.length)amplo.push(n);}}
+    if(!m.size)continue;
+    const si=SECS_SP.findIndex(s=>r.f===s.f&&r.a.startsWith(s.a));const s=SECS_SP[si];
+    out.push({si,sec:s?s.t:r.f,ef:s?s.ef:"",item:r.i,d:r.d,g:r.g,anexo:r.a,n:r.n,m,amplo});}
   return out;}
-const ncmSPNomes=n=>[...new Set(ncmSP(n).map(h=>h.sec))];
+const ncmSPNomes=n=>{const hs=ncmSP(n);return [...new Set(hs.map(h=>`${h.sec} · ${h.ef} · item ${h.item}`))];};
+const ncmSPAliq=n=>[...new Set(ncmSP(n).flatMap(h=>{const s=SECS_SP[h.si];if(!s)return [];if(s.conv&&diasVig52()<0)return [];return s.aliq;}))];
 
 // ---------- utilidades de UI
 function toast(msg,ms=3600,acao){document.querySelectorAll(".toast").forEach(t=>t.remove());const t=document.createElement("div");t.className="toast";t.setAttribute("role","status");
@@ -173,7 +187,7 @@ function montarSigra(arqs){
   const G=sigraUnificado(S,D); G.arquivoPdf=aD?aD.nome:aT.nome; G.tipoPdf=aD?"SIGRA_DUIMP":"SIGRA_DET";
   return {G,bytes:(aD||aT).bytes};
 }
-function cfgMotor(){return {...ST.cfg.regras,icmsUF:ST.cfg.icms.linhas,ncmSP:n=>ncmSPNomes(n)};}
+function cfgMotor(){return {...ST.cfg.regras,icmsUF:ST.cfg.icms.linhas,ncmSP:n=>ncmSPNomes(n),ncmSPAliq:n=>ncmSPAliq(n),vig52:{ate:brDate(NCMSP_INFO.vig52),dias:diasVig52()}};}
 function semLoc(G){const c=JSON.parse(JSON.stringify(G));delete c.loc;delete c.locVolumes;c.itens.forEach(i=>delete i.loc);(c.adicoes||[]).forEach(a=>delete a.loc);return c;}
 function rodarMotor(docs,G){return conferir({docs,sigra:G},cfgMotor());}
 function aplicarIA(res,ia){
@@ -508,7 +522,7 @@ function tabBody(p){
     const row=ST.cfg.icms.linhas.find(x=>x.uf===p.uf);
     const ncms=[...new Set((p.itens||[]).map(i=>i.ncm).filter(Boolean))];
     return `<div class="grid2e"><section class="card"><header><h2>Alíquota do estado do importador</h2></header><div class="body">${row?`<dl class="kv"><dt>UF</dt><dd>${row.uf} · ${esc(row.nome)}</dd><dt>Alíquota geral</dt><dd>${fmt(row.aliq)}%</dd><dt>FCP</dt><dd>${row.fcp?fmt(row.fcp)+"%":"—"}</dd><dt>Efetiva</dt><dd>${fmt(row.efetiva)}%</dd>${row.obs?`<dt>Observação</dt><dd style="font-family:var(--body)">${esc(row.obs)}</dd>`:""}</dl><p class="muted" style="font-size:12px;margin:14px 0 0">Tabela atualizada em ${esc(ST.cfg.icms.atualizadoEm)} · <a href="#icms-uf">ver todas as UFs</a></p>`:`<div class="muted">UF do importador não identificada nos documentos.</div>`}</div></section>
-    <section class="card"><header><h2>NCMs nas normas de ICMS/SP</h2></header><div class="body">${p.uf!=="SP"?`<div class="muted">Consulta aplicável só a importadores de SP.</div>`:ncms.map(n=>{const h=ncmSP(n);return `<div style="margin-bottom:12px"><div class="mono">${n.replace(/^(\d{4})(\d{2})(\d{2})$/,"$1.$2.$3")}</div>${h.length?h.map(x=>`<div class="muted" style="font-size:12.5px">${esc(x.sec)} · item ${esc(x.item)} · ${esc(x.d.slice(0,120))}</div>`).join(""):`<div class="muted" style="font-size:12.5px">Não consta nas normas consultadas.</div>`}</div>`;}).join("")}</div></section></div>`;
+    <section class="card"><header><h2>NCMs nas normas de ICMS/SP</h2><div class="sp"></div><a class="btn sm ghost" href="#icms-ncm">Abrir consulta</a></header><div class="body">${p.uf!=="SP"?`<div class="muted">Consulta aplicável só a importadores de SP.</div>`:ncms.map(n=>{const h=ncmSP(n);return `<div style="margin-bottom:14px"><div class="mono" style="font-weight:600">${fmtNcm(n)}</div>${h.length?h.map(x=>`<div style="font-size:12.5px;margin-top:4px"><span class="chip" style="padding:1px 7px;font-size:11.5px"><i style="background:${SECS_SP[x.si]?.cor||"var(--accent)"}"></i>${esc(SECS_SP[x.si]?.tag||x.sec)}</span> <b>${esc(x.ef)}</b> · item ${esc(x.item)} · <span class="muted">${esc(x.d.slice(0,110))}</span>${x.amplo.length?`<div class="muted" style="font-size:12px">O código ${esc(x.amplo.join(", "))} da norma abrange a NCM ${fmtNcm(n)}.</div>`:""}</div>`).join(""):`<div class="muted" style="font-size:12.5px">Não consta nas normas consultadas.</div>`}</div>`;}).join("")+vigHtml(true)}</div></section></div>`;
   }
   if(ST.tab==="historico"){
     return `<section class="card"><div class="tbl"><table><thead><tr><th>Quando</th><th>Quem</th><th>O quê</th></tr></thead><tbody>${(p.log||[]).slice().reverse().map(l=>`<tr><td class="mono muted">${dataBR(l.em)}</td><td>${esc(nome(l.por))}</td><td>${esc(l.acao)}</td></tr>`).join("")}</tbody></table></div></section>`;
@@ -584,15 +598,46 @@ function viewUF(){
   </tbody></table></div></section><p class="muted" style="font-size:12.5px">A FazComex é uma fonte secundária. Em caso de dúvida, confirme na legislação da SEFAZ do estado.</p></div>`;
 }
 // ---------- ICMS/SP por NCM
+function vigHtml(curto){
+  const d=diasVig52(),ate=brDate(NCMSP_INFO.vig52),cls=d<0?"bad":d<=60?"":"ok";
+  if(curto) return `<div class="vig ${cls}" style="margin-top:6px;padding:8px 12px"><div class="txt" style="font-size:12.5px">${d<0?`<b>A redução de base do Convênio 52/91 venceu em ${ate}.</b> Confira a prorrogação antes de aplicar a carga reduzida.`:`Redução de base do Conv. 52/91 válida até <b>${ate}</b> (${d} dia${d===1?"":"s"}).`}</div></div>`;
+  return `<div class="vig ${cls}"><div class="days">${d<0?"!":d}<small>${d<0?"vencido":d===1?"dia":"dias"}</small></div><div class="txt">${d<0?`<b>A redução de base do Convênio 52/91 venceu em ${ate}.</b> Confira se houve prorrogação no Confaz e no RICMS/SP (Anexo II, art. 12) antes de aplicar a carga reduzida.`:`<b>Redução de base do Convênio 52/91 válida até ${ate}</b> (RICMS/SP, Anexo II, art. 12, §2º).${d<=60?" O prazo está perto do fim: acompanhe a prorrogação no Confaz.":""}`}</div></div>`;
+}
+function ncmRecentes(){try{return JSON.parse(localStorage.getItem("crivo.ncm")||"[]");}catch(e){return [];}}
 function viewNCM(){
-  const q=ST.ncmQ.replace(/\D/g,"");const hs=q.length>=4&&q.length<=8?ncmSP(q):null;
-  return `<div class="wrap"><div><h1>ICMS/SP por NCM</h1><div class="muted">Resolução SF 4/1998, Resolução SF 31/2008 e Convênio ICMS 52/91 (Anexos I e II). Uso para importadores de SP.</div></div>
-  <form class="search" id="ncmF"><input type="search" id="ncmq" placeholder="Digite a NCM (4 a 8 dígitos), ex.: 8471.30.12" value="${esc(ST.ncmQ)}" aria-label="NCM" inputmode="numeric"><button class="btn pri" type="submit">Consultar</button></form>
-  ${hs===null?(q?`<div class="banner warn">Informe de 4 a 8 dígitos.</div>`:`<div class="card empty">Digite uma NCM para ver em quais normas ela aparece.</div>`):
-   `<div class="tiles">${SECS_SP.map(s=>{const n=hs.filter(h=>h.sec===s.t).length;return `<div class="tile ${n?"ok":""}"><div class="l">${esc(s.t)}</div><div class="v">${n?"Consta":"—"}</div><div class="s">${n?n+" ocorrência(s)":"Não consta"}</div></div>`;}).join("")}</div>
-   ${hs.length?`<section class="card"><div class="tbl"><table><thead><tr><th>Norma</th><th>Item</th><th>Descrição</th><th>NCM/SH</th></tr></thead><tbody>${hs.map(h=>`<tr><td>${esc(h.sec)}</td><td class="mono">${esc(h.item)}</td><td>${esc(h.d)}</td><td class="mono">${h.n.map(n=>n.replace(/\D/g,"")&&(q.startsWith(n.replace(/\D/g,""))||n.replace(/\D/g,"").startsWith(q))?`<b>${esc(n)}</b>`:esc(n)).join("<br>")}</td></tr>`).join("")}</tbody></table></div></section>`:`<div class="card empty">A NCM ${esc(ST.ncmQ)} não consta em nenhuma das normas consultadas.</div>`}`}
+  const q=ST.ncmQ.replace(/\D/g,"");const ok=q.length>=4&&q.length<=8;const hs=ok?ncmSP(q):null;
+  const rec=ncmRecentes();
+  const chips=(rec.length?"Consultas recentes:":"Experimente:")+(rec.length?rec:["84137080","8427","84716052"]).map(r=>`<button type="button" class="chip" data-ncmq="${r}" style="cursor:pointer">${fmtNcm(r)}</button>`).join("");
+  let res="";
+  if(!q) res=`<div class="card empty">Digite a NCM com 4 a 8 dígitos, com ou sem pontos. O resultado mostra, para cada norma, se a NCM consta, em qual item, com a descrição, o código NCM/SH e o efeito no ICMS.</div>`;
+  else if(!ok) res=`<div class="banner warn">A NCM precisa ter de 4 a 8 dígitos. Você digitou ${q.length}.</div>`;
+  else{
+    const por=SECS_SP.map((s,k)=>hs.filter(h=>h.si===k));
+    res=`<div class="row"><div style="flex:1"><span class="mono" style="font-size:22px;font-weight:600">${fmtNcm(q)}</span> <span class="muted">${hs.length?`${hs.length} ocorrência(s) encontrada(s)`:"Não consta em nenhuma das normas consultadas"}</span></div><button class="btn sm" data-act="copiarNcm">${ic("copy")}Copiar resultado</button></div>
+    <div class="tiles">${SECS_SP.map((s,k)=>`<button class="tile ${por[k].length?"ok":""}" data-ncmsec="${k}"><div class="l"><span style="color:${s.cor};font-weight:600">${s.tag}</span><span class="go">ver</span></div><div class="v" style="font-size:20px">${por[k].length?`Consta · ${por[k].length}`:"Não consta"}</div><div class="s">${por[k].length?`<b>${s.ef}</b>`:esc(s.s)}</div></button>`).join("")}</div>
+    ${SECS_SP.map((s,k)=>{const L=por[k];const grupos=[];for(const x of L){const g=grupos.at(-1);if(g&&g.a===x.anexo)g.rows.push(x);else grupos.push({a:x.anexo,rows:[x]});}
+      return `<section class="card" id="ncmsec${k}"><header><div style="flex:1"><h2><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${s.cor};margin-right:8px"></i>${esc(s.t)}</h2><div class="muted" style="font-size:12.5px">${esc(s.s)}</div></div>${L.length?`<span class="pill ok">${esc(s.ef)}</span>`:`<span class="pill neutral">Não consta</span>`}<a class="btn sm ghost" href="${s.link}" target="_blank" rel="noopener">${esc(s.lt)} ↗</a>${s.conv?`<a class="btn sm ghost" href="${LINKS_SP.art12}" target="_blank" rel="noopener">RICMS art. 12 ↗</a>`:""}</header>
+      ${L.length?grupos.map(g=>`${s.a===""&&g.a?`<div class="muted" style="padding:10px 18px 0;font-size:12px;text-transform:uppercase;letter-spacing:.05em">${esc(g.a)}</div>`:""}<div class="tbl"><table><thead><tr><th>Item</th><th>Descrição</th><th>NCM/SH</th></tr></thead><tbody>${g.rows.map(x=>`<tr><td class="mono">${esc(x.item)}</td><td>${esc(x.d)}${x.g?`<div class="muted" style="font-size:12px">Grupo: ${esc(x.g)}</div>`:""}${x.amplo.map(c=>`<div style="font-size:12px;color:var(--warn)">O código ${esc(c)} da norma abrange a NCM ${fmtNcm(q)}.</div>`).join("")}</td><td class="mono">${x.n.map(n=>x.m.has(n)?`<mark style="background:var(--warn-bg);color:var(--text);padding:0 3px;border-radius:3px">${esc(n)}</mark>`:esc(n)).join("<br>")}</td></tr>`).join("")}</tbody></table></div>`).join(""):`<div class="empty" style="padding:16px">Nenhuma ocorrência nesta norma.</div>`}</section>`;}).join("")}`;
+  }
+  return `<div class="wrap"><div class="row"><div style="flex:1"><h1>ICMS/SP por NCM</h1><div class="muted">Resolução SF 4/1998 · Resolução SF 31/2008 · Convênio ICMS 52/91 · dados conferidos em ${NCMSP_INFO.dadosEm} · para importadores de SP</div></div></div>
+  ${vigHtml()}
+  <section class="card"><div class="body" style="display:flex;flex-direction:column;gap:10px">
+   <form class="search" id="ncmF"><input type="search" id="ncmq" placeholder="Ex.: 8413.70.80" value="${esc(ST.ncmQ)}" aria-label="NCM" inputmode="numeric" style="font:600 18px var(--mono);letter-spacing:.04em;padding:12px 14px"><button class="btn pri" type="submit">Consultar</button>${ST.ncmQ?`<button class="btn ghost" type="button" data-act="limparNcm">Limpar</button>`:""}</form>
+   <div class="row muted" style="font-size:12.5px">${chips}</div></div></section>
+  ${res}
+  <section class="card"><header><h2>Normas consultadas</h2></header><div class="body grid2e" style="gap:16px">
+   <div><h3>Resolução SF 4/1998</h3><p class="muted" style="margin:4px 0">Máquinas, aparelhos e equipamentos industriais (Anexo I) e máquinas e implementos agrícolas (Anexo II).</p><dl class="kv"><dt>Efeito</dt><dd style="font-family:var(--body)">Alíquota de 12% (RICMS/SP, art. 54)</dd><dt>Itens</dt><dd>187 + 31</dd><dt>Última alteração</dt><dd style="font-family:var(--body)">Res. SF 126/2018</dd></dl></div>
+   <div><h3>Resolução SF 31/2008</h3><p class="muted" style="margin:4px 0">Produtos da indústria de processamento eletrônico de dados (art. 54, V, do RICMS/SP). Revogou o Anexo III da SF 4/1998.</p><dl class="kv"><dt>Efeito</dt><dd style="font-family:var(--body)">Alíquota de 12%</dd><dt>Itens</dt><dd>106 (Anexo Único)</dd><dt>Última alteração</dt><dd style="font-family:var(--body)">Res. SF 3/2018</dd></dl></div>
+   <div><h3>Convênio ICMS 52/91</h3><p class="muted" style="margin:4px 0">Redução da base de cálculo para máquinas industriais (Anexo I) e agrícolas (Anexo II). Em SP: RICMS, Anexo II, art. 12.</p><dl class="kv"><dt>Efeito</dt><dd style="font-family:var(--body)">Carga de 8,80% / 5,60% (internas)</dd><dt>Vigência</dt><dd style="font-family:var(--body)">até ${brDate(NCMSP_INFO.vig52)}</dd><dt>Prorrogação</dt><dd style="font-family:var(--body)">${NCMSP_INFO.prorrog}</dd></dl></div>
+   <div><h3>Carga final · Convênio 52/91</h3><table class="gtab"><tbody><tr><td class="muted">Operação</td><td class="muted">Anexo I</td><td class="muted">Anexo II</td></tr><tr><td>Internas em SP e interestaduais para consumidor final não contribuinte</td><td class="mono">8,80%</td><td class="mono">5,60%</td></tr><tr><td>Interestaduais para S e SE (exceto ES) · 12%</td><td class="mono">8,80%</td><td class="mono">7,00%</td></tr><tr><td>Interestaduais para N, NE, CO e ES · 7%</td><td class="mono">5,14%</td><td class="mono">4,10%</td></tr></tbody></table>
+   <p class="muted" style="font-size:12.5px;margin:6px 0 0">Não pode ser somada a outro benefício (art. 12, §1º). Não se exige estorno proporcional do crédito (art. 12, §4º, Decreto 70.674/2026).</p></div>
+  </div></section>
+  <p class="muted" style="font-size:12.5px">Relação de itens conferida a partir do texto das normas atualizado até ${NCMSP_INFO.dadosEm}. Códigos genéricos da norma (ex.: 8427) também valem quando abrangem a NCM digitada. A consulta apoia a análise e não substitui a leitura da legislação vigente.</p>
   </div>`;
 }
+function textoNcm(q){const hs=ncmSP(q);const L=[`Consulta NCM ${fmtNcm(q)} · ICMS/SP`,""];
+  SECS_SP.forEach((s,k)=>{const xs=hs.filter(h=>h.si===k);L.push(`${s.t} (${s.s}): ${xs.length?"CONSTA · "+s.ef:"não consta"}`);for(const x of xs)L.push(`  Item ${x.item} | ${x.d} | ${x.n.join(", ")}`);});
+  L.push("",`Redução de base do Convênio 52/91 válida até ${brDate(NCMSP_INFO.vig52)} (RICMS/SP, Anexo II, art. 12).`);return L.join("\n");}
 // ---------- Regras
 function viewRegras(){
   const ad=podeAdmin()&&ST.canWrite, n=ST.cfg.regras.niveis||{};
@@ -627,6 +672,8 @@ document.addEventListener("click",async e=>{
   if(e.target.closest("#btnTema")){aplicarTema(document.documentElement.dataset.tema==="escuro"?"claro":"escuro");shell();return;}
   const tg=e.target.closest("[data-toggle]");if(tg&&!e.target.closest("button,a")){const id=tg.dataset.toggle;ST.abertos[id]=!ST.abertos[id];const el=tg.closest(".find");el.classList.toggle("open",ST.abertos[id]);tg.setAttribute("aria-expanded",ST.abertos[id]);return;}
   const mk=e.target.closest(".mk[data-id]");if(mk){const p=pAtual();if(p){ST.tab="apontamentos";ST.fNivel="todos";ST.fGrupo="todos";ST.abertos[mk.dataset.id]=true;redesenharProc(p);const el=document.getElementById("f-"+mk.dataset.id);if(el){el.scrollIntoView({block:"center",behavior:"smooth"});el.classList.add("foco");}}return;}
+  const nq=e.target.closest("[data-ncmq]");if(nq){consultarNcm(fmtNcm(nq.dataset.ncmq));return;}
+  const ns=e.target.closest("[data-ncmsec]");if(ns){const el=document.getElementById("ncmsec"+ns.dataset.ncmsec);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});return;}
   const fs=e.target.closest("[data-fs]");if(fs){ST.filtro.status=fs.dataset.fs;render();return;}
   const so=e.target.closest("th[data-sort]");if(so){const k=so.dataset.sort;ST.sortL=ST.sortL.k===k?{k,d:-ST.sortL.d}:{k,d:["crit","warn","atualizadoEm"].includes(k)?-1:1};render();return;}
   const lm=e.target.closest("[data-limpa]");if(lm){ST.filtro[lm.dataset.limpa]=null;render();return;}
@@ -643,6 +690,8 @@ document.addEventListener("click",async e=>{
   const b=e.target.closest("[data-act]");if(!b)return;
   const act=b.dataset.act, p=pAtual();
   if(["corrigir","reabrir","justificar"].includes(act)&&p){await acaoAchado(p,b.dataset.id,act);return;}
+  if(act==="copiarNcm"){const q=ST.ncmQ.replace(/\D/g,"");try{await navigator.clipboard.writeText(textoNcm(q));toast("Resultado copiado.");}catch(x){modal(`<h2>Resultado</h2><textarea style="min-height:260px" readonly>${esc(textoNcm(q))}</textarea><div class="row" style="justify-content:flex-end"><button class="btn" data-close>Fechar</button></div>`);}return;}
+  if(act==="limparNcm"){ST.ncmQ="";render();const n=$("#ncmq");if(n)n.focus();return;}
   if(act==="limparItem"&&p){ST.fItem=null;redesenharProc(p);return;}
   if(act==="voltarItens"&&p){const s=ST.fItem;ST.fItem=null;ST.tab="itens";redesenharProc(p);const r=document.querySelector(`tr[data-item="${s}"]`);if(r){r.scrollIntoView({block:"center",behavior:"smooth"});r.classList.add("flash");}return;}
   if(act==="expandir"&&p){abertosOrd(p).forEach(x=>ST.abertos[x.id]=true);document.querySelectorAll(".find").forEach(f=>{if(f.dataset.fid&&ST.abertos[f.dataset.fid]){f.classList.add("open");}});return;}
@@ -694,7 +743,8 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="Enter"){const f=document.querySelector(".find.foco")||e.target.closest&&e.target.closest(".find");if(f){e.preventDefault();const id=f.dataset.fid;ST.abertos[id]=!ST.abertos[id];f.classList.toggle("open",ST.abertos[id]);}}
   else if(e.key==="c"){const f=document.querySelector(".find.foco");const p=pAtual();if(f&&p&&ST.canWrite){const a2=p.achados.find(x=>x.id===f.dataset.fid);if(a2&&a2.status==="aberto")acaoAchado(p,a2.id,"corrigir");}}
 });
-document.addEventListener("submit",e=>{if(e.target.id==="ncmF"){e.preventDefault();ST.ncmQ=$("#ncmq").value;render();$("#ncmq").focus();}});
+function consultarNcm(v){const q=v.replace(/\D/g,"");ST.ncmQ=(q.length>=4&&q.length<=8)?fmtNcm(q):v;if(q.length>=4&&q.length<=8){try{const r=[q,...ncmRecentes().filter(x=>x!==q)].slice(0,8);localStorage.setItem("crivo.ncm",JSON.stringify(r));}catch(e){}}render();const n=$("#ncmq");if(n){n.focus();n.select();}}
+document.addEventListener("submit",e=>{if(e.target.id==="ncmF"){e.preventDefault();consultarNcm($("#ncmq").value);}});
 
 // ---------- inicialização
 async function iniciar(){
